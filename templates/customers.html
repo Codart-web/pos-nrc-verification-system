@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Customers - NRC Verification System{% endblock %}
+
+{% block content %}
+<h1>Registered Customers</h1>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>NRC</th>
+            <th>Name</th>
+            <th>Phone</th>
+            <th>Address</th>
+            <th>Verified</th>
+            <th>Registered</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for customer in customers %}
+        <tr>
+            <td>{{ customer['id'] }}</td>
+            <td>{{ customer['nrc'] }}</td>
+            <td>{{ customer['name'] }}</td>
+            <td>{{ customer['phone'] or 'N/A' }}</td>
+            <td>{{ customer['address'] or 'N/A' }}</td>
+            <td>{{ 'Yes' if customer['verified'] else 'No' }}</td>
+            <td>{{ customer['created_at'] }}</td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="7" class="empty-message">No customers registered yet</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

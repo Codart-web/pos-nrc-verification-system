@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+
+{% block title %}POS - NRC Verification System{% endblock %}
+
+{% block content %}
+<div class="pos-container">
+    <div class="pos-left">
+        <div class="verification-section" id="verificationSection">
+            <h2>Customer Verification</h2>
+            <div class="form-group">
+                <label for="nrcInput">NRC Number</label>
+                <input type="text" id="nrcInput" placeholder="e.g., 123456/78/1">
+                <button onclick="verifyNRC()" class="btn btn-primary">Verify</button>
+            </div>
+            <div id="verificationResult"></div>
+        </div>
+
+        <div class="registration-section" id="registrationSection" style="display: none;">
+            <h2>Register New Customer</h2>
+            <div class="form-group">
+                <label for="regNrc">NRC Number</label>
+                <input type="text" id="regNrc" readonly>
+            </div>
+            <div class="form-group">
+                <label for="regName">Full Name</label>
+                <input type="text" id="regName" placeholder="Enter full name">
+            </div>
+            <div class="form-group">
+                <label for="regPhone">Phone Number</label>
+                <input type="text" id="regPhone" placeholder="Enter phone number">
+            </div>
+            <div class="form-group">
+                <label for="regAddress">Address</label>
+                <input type="text" id="regAddress" placeholder="Enter address">
+            </div>
+            <button onclick="registerCustomer()" class="btn btn-primary">Register</button>
+            <button onclick="cancelRegistration()" class="btn btn-secondary">Cancel</button>
+        </div>
+
+        <div class="customer-info" id="customerInfo" style="display: none;">
+            <h3>Customer Details</h3>
+            <p><strong>Name:</strong> <span id="custName"></span></p>
+            <p><strong>NRC:</strong> <span id="custNrc"></span></p>
+            <p><strong>Phone:</strong> <span id="custPhone"></span></p>
+        </div>
+
+        <div class="products-section">
+            <h2>Products</h2>
+            <div class="products-grid">
+                {% for product in products %}
+                <div class="product-card" onclick="addToCart({{ product['id'] }}, '{{ product['name'] }}', {{ product['price'] }}, {{ product['stock'] }})">
+                    <h4>{{ product['name'] }}</h4>
+                    <p class="price">K{{ "{:,.0f}".format(product['price']) }}</p>
+                    <p class="stock">Stock: {{ product['stock'] }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="pos-right">
+        <div class="cart-section">
+            <h2>Cart</h2>
+            <div id="cartItems"></div>
+            <div class="cart-total">
+                <strong>Total: K<span id="cartTotal">0</span></strong>
+            </div>
+            <button onclick="processSale()" class="btn btn-success btn-block" id="checkoutBtn" disabled>
+                Complete Sale
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let cart = [];
+let currentCustomer = null;
+
+function verifyNRC() {
+    const nrc = document.getElementById('nrcInput').value.trim();
+    if (!nrc) {
+        alert('Please enter an NRC number');
+        return;
+    }
+
+    fetch('/verify-nrc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nrc: nrc })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (data.verified) {
+                setCustomer(data.customer);
+            } else {
+                document.getElementById('registrationSection').style.display = 'block';
+                document.getElementById('regNrc').value = nrc;
+            }
+        } else {
+            alert(data.message);
+        }
+    });
+}
+
+function setCustomer(customer) {
+    currentCustomer = customer;
+    document.getElementById('customerInfo').style.display = 'block';
+    document.getElementById('custName').textContent = customer.name;
+    document.getElementById('custNrc').textContent = customer.nrc;
+    document.getElementById('custPhone').textContent = customer.phone || 'N/A';
+    document.getElementById('registrationSection').style.display = 'none';
+    updateCheckoutButton();
+}
+
+function registerCustomer() {
+    const data = {
+        nrc: document.getElementById('regNrc').value,
+        name: document.getElementById('regName').value,
+        phone: document.getElementById('regPhone').value,
+        address: document.getElementById('regAddress').value
+    };
+
+    fetch('/register-customer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            setCustomer(data.customer);
+        } else {
+            alert(data.message);
+        }
+    });
+}
+
+function cancelRegistration() {
+    document.getElementById('registrationSection').style.display = 'none';
+    document.getElementById('regName').value = '';
+    document.getElementById('regPhone').value = '';
+    document.getElementById('regAddress').value = '';
+}
+
+function addToCart(id, name, price, stock) {
+    const existing = cart.find(item => item.product_id === id);
+    if (existing) {
+        if (existing.quantity < stock) {
+            existing.quantity++;
+        } else {
+            alert('Cannot add more - stock limit reached');
+            return;
+        }
+    } else {
+        cart.push({ product_id: id, name: name, price: price, quantity: 1, maxStock: stock });
+    }
+    renderCart();
+}
+
+function removeFromCart(id) {
+    cart = cart.filter(item => item.product_id !== id);
+    renderCart();
+}
+
+function updateQuantity(id, change) {
+    const item = cart.find(i => i.product_id === id);
+    if (item) {
+        item.quantity += change;
+        if (item.quantity <= 0) {
+            removeFromCart(id);
+        } else if (item.quantity > item.maxStock) {
+            item.quantity = item.maxStock;
+            alert('Cannot exceed available stock');
+        }
+    }
+    renderCart();
+}
+
+function renderCart() {
+    const container = document.getElementById('cartItems');
+    if (cart.length === 0) {
+        container.innerHTML = '<p class="empty-cart">Cart is empty</p>';
+        document.getElementById('cartTotal').textContent = '0';
+        updateCheckoutButton();
+        return;
+    }
+
+    let html = '';
+    let total = 0;
+    cart.forEach(item => {
+        const subtotal = item.price * item.quantity;
+        total += subtotal;
+        html += `
+            <div class="cart-item">
+                <div class="cart-item-info">
+                    <strong>${item.name}</strong>
+                    <span>K${item.price.toLocaleString()} x ${item.quantity}</span>
+                </div>
+                <div class="cart-item-actions">
+                    <button onclick="updateQuantity(${item.product_id}, -1)">-</button>
+                    <span>${item.quantity}</span>
+                    <button onclick="updateQuantity(${item.product_id}, 1)">+</button>
+                    <button onclick="removeFromCart(${item.product_id})" class="remove-btn">X</button>
+                </div>
+                <div class="cart-item-subtotal">K${subtotal.toLocaleString()}</div>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+    document.getElementById('cartTotal').textContent = total.toLocaleString();
+    updateCheckoutButton();
+}
+
+function updateCheckoutButton() {
+    const btn = document.getElementById('checkoutBtn');
+    btn.disabled = !currentCustomer || cart.length === 0;
+}
+
+function processSale() {
+    if (!currentCustomer) {
+        alert('Please verify a customer first');
+        return;
+    }
+    if (cart.length === 0) {
+        alert('Cart is empty');
+        return;
+    }
+
+    const data = {
+        customer_id: currentCustomer.id,
+        items: cart.map(item => ({ product_id: item.product_id, quantity: item.quantity }))
+    };
+
+    fetch('/process-sale', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Sale completed!\nTransaction ID: ${data.transaction_id}\nTotal: K${data.total.toLocaleString()}`);
+            cart = [];
+            renderCart();
+            location.reload();
+        } else {
+            alert(data.message);
+        }
+    });
+}
+
+renderCart();
+</script>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero">
+    <h1>POS NRC Verification System</h1>
+    <p>A Point of Sale system with identity (NRC) verification for secure transactions</p>
+    <div class="hero-buttons">
+        <a href="{{ url_for('pos') }}" class="btn btn-primary">Start Selling</a>
+        <a href="{{ url_for('customers') }}" class="btn btn-secondary">View Customers</a>
+    </div>
+</div>
+
+<div class="features">
+    <div class="feature-card">
+        <h3>NRC Verification</h3>
+        <p>Verify customer identity using National Registration Card numbers before processing transactions.</p>
+    </div>
+    <div class="feature-card">
+        <h3>Product Management</h3>
+        <p>Manage inventory, track stock levels, and organize products by category.</p>
+    </div>
+    <div class="feature-card">
+        <h3>Transaction History</h3>
+        <p>Keep complete records of all sales transactions linked to verified customers.</p>
+    </div>
+</div>
+{% endblock %}

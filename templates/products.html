@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Products - NRC Verification System{% endblock %}
+
+{% block content %}
+<h1>Products</h1>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Category</th>
+            <th>Price</th>
+            <th>Stock</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for product in products %}
+        <tr>
+            <td>{{ product['id'] }}</td>
+            <td>{{ product['name'] }}</td>
+            <td>{{ product['category'] or 'Uncategorized' }}</td>
+            <td>K{{ "{:,.0f}".format(product['price']) }}</td>
+            <td>{{ product['stock'] }}</td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="5" class="empty-message">No products available</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
